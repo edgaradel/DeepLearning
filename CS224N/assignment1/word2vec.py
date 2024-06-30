@@ -15,8 +15,8 @@ class word2vec():
                  learning_rate=1.0,
                  logdir='/tmp/simple_word2vec',
                  model_path=None):
-        #获得模型的基本参数
-        self.batch_size=None#一批中数据个数，目前是根据情况来的
+        # Get the basic parameters of the model.
+        self.batch_size=None# The number of data in a batch, currently depends on the situation.
         if model_path!=None:
             self.load_model(model_path)
         else:
@@ -35,9 +35,9 @@ class word2vec():
                 self.word2id[self.vocab_list[i]]=i
 
             # train times
-            self.train_words_num=0 # 训练的单词对数
-            self.train_sents_num=0 # 训练的句子数
-            self.train_times_num=0 # 训练的次数（一次可以有多个句子）
+            self.train_words_num=0 # The number of word pairs for training.
+            self.train_sents_num=0 # The number of sentences for training."
+            self.train_times_num=0 # The number of training iterations (one iteration can include multiple sentences).
 
             # train loss records
             self.train_loss_records=collections.deque(maxlen=10)
@@ -66,10 +66,10 @@ class word2vec():
                                                             stddev=1.0/math.sqrt(self.embedding_size)))
             self.nce_biases=tf.Variable(tf.zeros([self.vocab_size]))
 
-            #将输入序列向量化
+            # Vectorize the input sequence.
             embed=tf.nn.embedding_lookup(self.embedding_dict,self.train_inputs) # batch_size
 
-            #得到NCE损失
+            # Obtain NCE loss.
             self.loss=tf.reduce_mean(
                 tf.nn.nce_loss(
                     weights=self.nce_weight,
@@ -81,25 +81,25 @@ class word2vec():
                 )
             )
 
-            #tensorflow 相关
+            #TensorFlow related."
             tf.summary.scalar('loss',self.loss) #让tensorflow记录参数
 
-            #根据 nce Loss 来更新梯度和embedding
+            # Update gradients and embeddings based on NCE loss.
             self.train_op=tf.train.GradientDescentOptimizer(learning_rate=0.1).minimize(self.loss) # 训练操作
 
-            #计算与指定若干单词的相似度
+            # Calculate the similarity with specified words.
             self.test_word_id=tf.placeholder(tf.int32,shape=[None])
-            vec_l2_model=tf.sqrt( #求各词向量的L2模
+            vec_l2_model=tf.sqrt( # Calculate the L2 norm of each word vector.
                 tf.reduce_sum(tf.square(self.embedding_dict),1,keep_dims=True))
             avg_l2_model=tf.reduce_mean(vec_l2_model)
             tf.summary.scalar('avg_vec_model',avg_l2_model)
 
             self.normed_embedding=self.embedding_dict/vec_l2_model
-            #self.embedding_dict=norm_vec # 对embedding向量进行正则化
+            #self.embedding_dict=norm_vec # Normalize the embedding vectors.
             test_embed=tf.nn.embedding_lookup(self.normed_embedding,self.test_word_id)
             self.similarity=tf.matmul(test_embed,self.normed_embedding,transpose_b=True)
 
-            #变量初始化
+            # Variable initialization."
             self.init=tf.global_variables_initializer()
 
             self.merged_summary_op=tf.summary.merge_all()
@@ -108,7 +108,7 @@ class word2vec():
 
     def train_by_sentence(self,input_sentence=[]):
         # input_sentence: [sub_sent1,sub_sent2,...]
-        #每个sub_sent是一个单词序列，例如['这次','大选','让']
+        # Each sub_sent is a sequence of words
         sent_num=input_sentence.__len__()
         batch_inputs=[]
         batch_labels=[]
@@ -170,7 +170,7 @@ class word2vec():
         if not os.path.exists(save_path):
             os.mkdir(save_path)
 
-        #记录模型各参数
+        # Record various parameters of the model.
         model={}
         var_names=['vocab_size', #int
                    'vocab_list', #list
@@ -195,7 +195,7 @@ class word2vec():
         with open(param_path,'wb') as file:
             pkl.dump(model,file)
 
-        #记录tf模型
+        # Logging TensorFlow model.
         tf_path=os.path.join(save_path,'tf_vars')
         if os.path.exists(tf_path):
             os.remove(tf_path)
@@ -224,7 +224,7 @@ class word2vec():
 
 if __name__ == '__main__':
 
-    # step1 读取停用词
+    # Step 1: Read stop words.
     stop_words=[]
     with open('stop_words.txt','r',encoding='UTF-8') as file:
         line=file.readline()
@@ -232,9 +232,9 @@ if __name__ == '__main__':
             stop_words.append(line[:-1])
             line=file.readline()
     stop_words=set(stop_words)
-    print('停用词读取完毕，共{n}个单词'.format(n=len(stop_words)))
+    print('Stop words read complete, {n} words in total'.format(n=len(stop_words)))
 
-    # step2 读取文本，预处理，分词，得到词典
+    # Step 2: Read text, preprocess, tokenize, and obtain vocabulary.
     raw_word_list=[]
     sentence_list=[]
     with open('280.txt',encoding='gbk') as file:
@@ -254,19 +254,19 @@ if __name__ == '__main__':
                 sentence_list.append(dealed_words)
             line=file.readline()
         word_count=collections.Counter(raw_word_list)
-        print('文本中共有{n1}个单词，不重复单词数{n2}，选取前30000个单词进入词典'
+        print('There are {n1} words in the text, {n2} unique words, selecting the top 30,000 words for the dictionary'.format(n1=n1, n2=n2))
               .format(n1=len(raw_word_list),n2=len(word_count)))
         word_count=word_count.most_common(30000)
         word_list=[x[0] for x in word_count]
 
-        #创建模型，训练
-        w2v=word2vec(vocab_list=word_list, # 词典库
+        # Create model, train.
+        w2v=word2vec(vocab_list=word_list, # Dictionary
                      embedding_size=200,
                      win_len=2,
                      learning_rate=1,
-                     num_sampled=100,   # 负采样个数
-                     logdir='/tmp/280')     # tensorboard 记录地址
-        test_word=['萧炎','灵魂','火焰','长老','尊者','皱眉']
+                     num_sampled=100,   # Number of negative samples.
+                     logdir='/tmp/280')     # TensorBoard log directory."
+        test_word = ['Xiao Yan', 'soul', 'flame', 'elder', 'elder', 'frown']
         test_id=[word_list.index(x) for x in test_word]
         num_steps=100000
         for i in range(num_steps):
